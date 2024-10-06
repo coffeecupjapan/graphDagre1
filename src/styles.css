@@ -1,0 +1,17 @@
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: sans-serif;
+  position: relative;
+}
+
+.ctrlClickArea {
+  opacity: 0.3;
+  border: 1px dotted black;
+  background-color:aqua;
+  position: absolute;
+}
