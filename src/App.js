@@ -24,10 +24,6 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
-  nodes = nodes.map((node) => {
-    return {...node, position: {x: 0, y: 0}}
-  })
-
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
@@ -63,7 +59,8 @@ function deleteNodesAndEdges(setNodes, setEdges, nodeIds) {
     return prev.filter((edge) => !nodeIds.includes(edge.source) && !nodeIds.includes(edge.target))
   })
   setNodes((prev) => {
-    return prev.filter((node) => !nodeIds.includes(node.id))
+    const newPrev = prev.map((p) => ({...p, position: {x: 0, y: 0}}))
+    return newPrev.filter((node) => !nodeIds.includes(node.id))
   })
 }
 
@@ -228,6 +225,10 @@ const LayoutFlow = () => {
       console.log("final result : ", entryNodeId, endNodeId)
       deleteNodesAndEdges(setNodes, setEdges, intersectNodeIDs)
       endNodeId.forEach((endNodeIdchild) => {
+        const edgeExists = edges.some((edge) => {
+          edge.source === entryNodeId && edge.target === endNodeIdchild
+        })
+        if (edgeExists) return
         setEdges((edge) => [...edge, {
           id: `e${entryNodeId}${endNodeIdchild}`,
           source: entryNodeId,
@@ -250,7 +251,7 @@ const LayoutFlow = () => {
 
   useEffect(() => {
     if (!isDagreReady) return
-    getLayoutedElements(nodes, edges)
+    onLayout("TB")
     setIsDagreReady(false)
   }, [isDagreReady])
 
