@@ -6,7 +6,7 @@ import {
   Panel,
   useNodesState,
   useEdgesState,
-  useViewport
+  useViewport,
 } from '@xyflow/react';
 import dagre from 'dagre';
 
@@ -20,7 +20,7 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 172;
 const nodeHeight = 36;
 
-const getLayoutedElements = (nodes, edges, direction = 'TB') => {
+const getLayoutedElements = (nodes, edges, direction = 'LR') => {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
@@ -54,6 +54,11 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   return { nodes: newNodes, edges };
 };
 
+const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+  initialNodes,
+  initialEdges,
+);
+
 function deleteNodesAndEdges(setNodes, setEdges, nodeIds) {
   setEdges((prev) => {
     return prev.filter((edge) => !nodeIds.includes(edge.source) && !nodeIds.includes(edge.target))
@@ -64,14 +69,12 @@ function deleteNodesAndEdges(setNodes, setEdges, nodeIds) {
   })
 }
 
-const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-  initialNodes,
-  initialEdges,
-);
-
 const LayoutFlow = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
+
+  const [memoizedNodes, setMemoizedNodes] = useState(layoutedNodes)
+  const [memoizedEdges, setMemoizedEdges] = useState(layoutedEdges)
 
   const onConnect = useCallback(
     (params) =>
@@ -87,9 +90,11 @@ const LayoutFlow = () => {
     (direction) => {
       const { nodes: layoutedNodes, edges: layoutedEdges } =
         getLayoutedElements(nodes, edges, direction);
-
+      console.log("onLayout : ", layoutedNodes, layoutedEdges)
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
+      setMemoizedNodes(layoutedNodes)
+      setMemoizedEdges(layoutedEdges)
     },
     [nodes, edges],
   );
@@ -146,7 +151,7 @@ const LayoutFlow = () => {
       console.log(viewportX, viewportY, zoom)
       console.log(compareX, compareY)
       console.log(nodes)
-      const intersectNodes = nodes.filter((node) => {
+      const intersectNodes = memoizedNodes.filter((node) => {
         const x = node.position.x * zoom + viewportX
         const y = node.position.y * zoom + viewportY
         if (compareX[0] <= x && compareX[1] >= x && compareY[0] <= y && compareY[1] >= y) {
@@ -161,7 +166,7 @@ const LayoutFlow = () => {
       let entryNodeId, endNodeId = [], endNodeCandidates = [], endNodeParent = [], endNodeNoChildNode = [];
       intersectNodes.forEach((inode) => {
         const nodeId = inode.id
-        const nodeEdges = edges.filter((edge) => nodeId === edge.source || nodeId === edge.target)
+        const nodeEdges = memoizedEdges.filter((edge) => nodeId === edge.source || nodeId === edge.target)
         const otherNodes = intersectNodeIDs.filter((id) => id !== nodeId)
         const foundInEdges = nodeEdges.filter((edge) => otherNodes.includes(edge.source))
         const foundOutEdges = nodeEdges.filter((edge) => otherNodes.includes(edge.target))
@@ -201,14 +206,14 @@ const LayoutFlow = () => {
         if (!foundInEdges.length && !foundOutEdges.length) {
           console.log("isolated node : ", nodeId)
           // should consider case for single layer deletion
-          const intersectionNodeSource = Array.from(new Set(edges
+          const intersectionNodeSource = Array.from(new Set(memoizedEdges
             .filter((edge) => intersectNodeIDs.includes(edge.target))
             .map((edge) => edge.source)
           ))
           if (intersectionNodeSource.length !== 1) return
           entryNodeId = intersectionNodeSource[0]
           // should consider other algorithm to choose applicable node
-          const intersectionNodeTarget = edges
+          const intersectionNodeTarget = memoizedEdges
             .filter((edge) => intersectNodeIDs.includes(edge.source))
           endNodeId = intersectionNodeTarget.map((inodetarget) => inodetarget.target)
         }
@@ -218,24 +223,25 @@ const LayoutFlow = () => {
       } else if (!endNodeId.length) {
         endNodeParent = Array.from(new Set(endNodeParent))
         console.log(endNodeParent, endNodeNoChildNode)
-        endNodeId = edges.filter((edge) => {
+        endNodeId = memoizedEdges.filter((edge) => {
           return edge.source === endNodeParent[0] && !endNodeNoChildNode.includes(edge.target)
         }).map((edge) => edge.target)
       }
       console.log("final result : ", entryNodeId, endNodeId)
       deleteNodesAndEdges(setNodes, setEdges, intersectNodeIDs)
       endNodeId.forEach((endNodeIdchild) => {
-        const edgeExists = edges.some((edge) => {
+        const edgeExists = memoizedEdges.some((edge) => {
           edge.source === entryNodeId && edge.target === endNodeIdchild
         })
         if (edgeExists) return
-        setEdges((edge) => [...edge, {
+        setEdges((edge) => addEdge({
           id: `e${entryNodeId}${endNodeIdchild}`,
           source: entryNodeId,
           target: endNodeIdchild,
           type: "smoothstep",
           animated: true
-        }])
+          }, edge)
+        )
       })
       setFirstCtrlPos([0, 0])
       setSecondCtrlPos([0, 0])
@@ -251,7 +257,7 @@ const LayoutFlow = () => {
 
   useEffect(() => {
     if (!isDagreReady) return
-    onLayout("TB")
+    onLayout("LR")
     setIsDagreReady(false)
   }, [isDagreReady])
 
