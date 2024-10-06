@@ -14,13 +14,14 @@ import { initialNodes, initialEdges } from './nodes-edges.js';
 
 import '@xyflow/react/dist/style.css';
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
 const nodeWidth = 172;
 const nodeHeight = 36;
 
 const getLayoutedElements = (nodes, edges, direction = 'LR') => {
+
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
@@ -257,7 +258,7 @@ const LayoutFlow = () => {
     if (!isDagreReady) return
     onLayout("LR")
     setIsDagreReady(false)
-  }, [isDagreReady])
+  }, [isDagreReady, nodes, edges])
 
   return (
     <ReactFlow
